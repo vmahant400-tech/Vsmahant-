@@ -1,0 +1,11 @@
+{
+  "appId": "com.vsmahant.app",
+  "appName": "vsmahant - Nidhi AI",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

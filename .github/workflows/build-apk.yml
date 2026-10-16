@@ -1,0 +1,73 @@
+name: Build Nidhi APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Add Android platform
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: Patch Android manifest for Termux
+        run: bash scripts/patch-android.sh
+
+      - name: Install custom MainActivity
+        run: |
+          mkdir -p android/app/src/main/java/com/vsmahant/app
+          cp android-custom/MainActivity.java \
+             android/app/src/main/java/com/vsmahant/app/MainActivity.java
+
+      - name: Inject Groq keys from GitHub Secrets
+        env:
+          GROQ_KEYS: ${{ secrets.GROQ_KEYS }}
+        run: |
+          mkdir -p www
+          cat > www/nidhi-keys.js <<EOF
+          window.NIDHI_GROQ_KEYS = "${GROQ_KEYS}";
+          EOF
+
+      - name: Copy and sync Capacitor web assets
+        run: |
+          npx cap copy android
+          npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nidhi-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
